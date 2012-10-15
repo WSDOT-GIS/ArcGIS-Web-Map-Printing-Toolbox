@@ -38,7 +38,7 @@ class ExportWebMap(object):
             displayName="Web Map as JSON",
             name="Web_Map_as_JSON",
             datatype="String",
-            parameterType="Required",
+            parameterType="Optional",
             direction="Input")
         param0.value = "" 
         
