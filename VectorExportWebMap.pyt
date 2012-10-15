@@ -115,12 +115,12 @@ class ExportWebMap(object):
         # Input WebMap json
         Web_Map_as_JSON = parameters[WEB_MAP_INDEX].valueAsText
         
-        if Web_Map_asJSON:
+        if Web_Map_as_JSON:
             templateFolder = parameters[LAYOUT_TEMPLATE_FOLDER_INDEX].valueAsText
             
             # The template location in the server data store
             templateMxd = parameters[LAYOUT_TEMPLATE_INDEX].valueAsText
-            templateMxd = os.path.join(templateFolder, templateMxd)
+            templateMxd = os.path.join(templateFolder, "%s.mxd" % templateMxd)
             
             # Throw an error if the template MXD does not exist.
             if not arcpy.Exists(templateMxd):
