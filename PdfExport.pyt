@@ -15,10 +15,11 @@ def generateFilename(ext=".pdf"):
 	This will ensure a unique output name
 	@rtype: str
 	"""
-	output = 'WebMap_%s%s' % (str(uuid.uuid1()), ext)
-	output = os.path.join(arcpy.env.scratchFolder, output)
+	output = arcpy.CreateUniqueName('WebMap%s' % ext, arcpy.env.scratchFolder)
+#	output = 'WebMap_%s%s' % (str(uuid.uuid1()), ext)
+#	output = os.path.join(arcpy.env.scratchFolder, output)
 	return output
-		
+
 class ExportPdf(object):
 	_WEB_MAP_AS_JSON_INDEX = 0
 	_FORMAT_INDEX = 1
@@ -26,12 +27,16 @@ class ExportPdf(object):
 	_TEMPLATE_FOLDER_INDEX = 3
 	_LAYOUT_TEMPLATE_INDEX = 4
 	_RESOLUTION_PARAM_INDEX = 5
+	_IMAGE_QUALITY_INDEX = 6
+	_COLORSPACE_INDEX = 7
+	_IMAGE_COMPRESSION_INDEX = 8
+	_JPEG_COMPRESSION_INDEX = 9
 	
 	def __init__(self):
 		"""Define the tool (tool name is the name of the class)."""
 		self.label = "Export PDF"
 		self.description = "Export to PDF"
-		self.canRunInBackground = False
+		self.canRunInBackground = True
 		
 	def getParameterInfo(self):
 		"""Define parameter definitions"""
@@ -80,14 +85,62 @@ class ExportPdf(object):
 		resolutionParam = arcpy.Parameter(
 				displayName="Resolution",
 				name="Resolution",
+				category="Advanced",
 				datatype="Long",
 				parameterType="Optional",
 				direction="Input")
 		resolutionParam.filter.type = "Range"
 		resolutionParam.filter.list = [96, 300]
+		resolutionParam.value=96
+		
+		imageQualityParam = arcpy.Parameter(
+				displayName="Image Quality",
+				name="Image_Quality",
+				category="Advanced",
+				datatype="String",
+				parameterType="Optional",
+				direction="Input")
+		imageQualityParam.filter.type="ValueList"
+		imageQualityParam.filter.list=["BEST","BETTER","NORMAL","FASTER","FASTEST"]
+		imageQualityParam.value = "BEST"
+		
+		colorspaceParam = arcpy.Parameter(
+				displayName="Color Space",
+				name="Colorspace",
+				category="Advanced",
+				datatype="String",
+				parameterType="Optional",
+				direction="Input")
+		colorspaceParam.filter.type="ValueList"
+		colorspaceParam.filter.list=["CMYK","RGB"]
+		colorspaceParam.value="RGB"
+		
+		imageCompressionParam = arcpy.Parameter(
+				displayName="Image Compression",
+				name="Image_Compression",
+				category="Advanced",
+				datatype="String",
+				parameterType="Optional",
+				direction="Input")
+		imageCompressionParam.filter.type="ValueList"
+		imageCompressionParam.filter.list=["ADAPTIVE","JPEG","DEFLATE","LZW","NONE","RLE"]
+		imageCompressionParam.value = "ADAPTIVE"
+		
+		jpegCompressionQualityParam = arcpy.Parameter(
+				displayName="JPEG Compression Quality",
+				name="JPEG_Compression_Quality",
+				category="Advanced",
+				datatype="Long",
+				parameterType="Optional",
+				direction="Input")
+		jpegCompressionQualityParam.filter.type="Range"
+		jpegCompressionQualityParam.filter.list=[1,100]
+		jpegCompressionQualityParam.value=80
 		
 		params = [webMapParam, formatParam, outputFileParam, 
-				templateFolderParam, templateParam, resolutionParam]
+				templateFolderParam, templateParam, resolutionParam,
+				imageQualityParam,colorspaceParam,imageCompressionParam,
+				jpegCompressionQualityParam]
 		
 		return params
 	
@@ -113,7 +166,7 @@ class ExportPdf(object):
 						#template_param.filter.list.append(name)
 						templates.append(name)
 			template_param.filter.list = templates
-	
+		
 	def updateMessages(self, parameters):
 		"""Modify the messages created by internal validation for each tool
 		parameter.  This method is called after internal validation."""
@@ -133,10 +186,10 @@ class ExportPdf(object):
 			Format = parameters[self._FORMAT_INDEX].valueAsText
 			if Format == '#' or not Format:
 				Format = "PDF"
-
+			
 			# Input Layout template
 			Layout_Template = parameters[self._LAYOUT_TEMPLATE_INDEX].valueAsText
-	
+			
 			# Get the requested map document
 			templateMxd = os.path.join(templatePath, Layout_Template + '.mxd')
 			
@@ -155,11 +208,23 @@ class ExportPdf(object):
 				resolution = parameters[self._RESOLUTION_PARAM_INDEX].value
 				
 				if resolution <= 0:
-					resolution = None
+					resolution = 96
+				
+				imageQuality = parameters[self._IMAGE_QUALITY_INDEX].value
+				
+				colorspace = parameters[self._COLORSPACE_INDEX].value
+				imageComrpession = parameters[self._IMAGE_COMPRESSION_INDEX].value
+				jpegCompressionQuality = parameters[self._JPEG_COMPRESSION_INDEX].value
+				
+				
 				
 				# Export the WebMap
 				if re.match("PDF", Format, re.IGNORECASE):
-					arcpy.mapping.ExportToPDF(mxd, Output_File, resolution=resolution, georef_info=True) 
+					arcpy.mapping.ExportToPDF(mxd, Output_File, 
+											resolution=resolution, 
+											image_quality=imageQuality,
+											image_compression=imageComrpession,
+											jpeg_compression_quality=jpegCompressionQuality) 
 				elif re.match("PNG", Format, re.IGNORECASE):
 					arcpy.mapping.ExportToPNG(mxd, Output_File)
 		
