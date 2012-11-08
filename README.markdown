@@ -1,6 +1,6 @@
-# Vector Export Web Map toolbox #
+# Export Web Map toolbox #
 
-This project is not yet completed.
+Advanced printing tools for web maps.
 
 ## License ##
 
