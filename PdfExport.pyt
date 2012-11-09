@@ -1,5 +1,5 @@
 import arcpy
-import os, uuid, re
+import os, uuid, re, json
 
 class Toolbox(object):
 	def __init__(self):
@@ -8,7 +8,7 @@ class Toolbox(object):
 		self.label = "PDF Export"
 		self.alias = "pdf"
 		# List of tool classes associated with this toolbox
-		self.tools = [ExportPdf]
+		self.tools = [ExportPdf, GetWebMapJson]
 
 def generateFilename(ext=".pdf"):
 	"""Use the uuid module to generate a GUID as part of the output name
@@ -39,7 +39,6 @@ class ExportPdf(object):
 		self.canRunInBackground = True
 		
 	def getParameterInfo(self):
-		"""Define parameter definitions"""
 		"""Define parameter definitions"""
 		webMapParam = arcpy.Parameter(
 			displayName="Web Map as JSON",
@@ -235,3 +234,130 @@ class ExportPdf(object):
 				filePath = mxd.filePath
 				del mxd, result
 				os.remove(filePath)
+
+class GetWebMapJson(object):
+	_OUTPUT_FILE_PARAM_INDEX = 0
+	_OUTPUT_WIDTH_PARAM_INDEX = 1
+	_OUTPUT_HEIGHT_PARAM_INDEX = 2
+	_DPI_PARAM_INDEX = 3
+	
+	def __init__(self):
+		"""Define the tool (tool name is the name of the class)."""
+		self.label = "Get Web Map JSON"
+		self.description = "Returns JSON for a map document."
+		self.canRunInBackground = False
+
+	def getParameterInfo(self):
+		"""Define parameter definitions"""
+		outputFileParam = arcpy.Parameter(
+			displayName="Output File",
+			name="Output_File",
+			datatype="File",
+			parameterType="Required",
+			direction="Output")
+		
+		outputWidthParam = arcpy.Parameter(
+			displayName="Width",
+			name="Width",
+			category="Export Options",
+			datatype="Long",
+			parameterType="Required",
+			direction="Input")
+		outputWidthParam.value = 800
+		
+		outputHeightParam = arcpy.Parameter(
+			displayName="Height",
+			name="Height",
+			category="Export Options",
+			datatype="Long",
+			parameterType="Required",
+			direction="Input")
+		outputHeightParam.value = 1100
+		
+		dpiParam = arcpy.Parameter(
+			displayName="DPI",
+			name="DPI",
+			category="Export Options",
+			datatype="Long",
+			parameterType="Required",
+			direction="Input")
+		dpiParam.value = 96
+		
+		
+		outputFileParam.value = generateFilename(".txt")
+		params = [outputFileParam, outputWidthParam, outputHeightParam, dpiParam]
+		return params
+
+	def isLicensed(self):
+		"""Set whether tool is licensed to execute."""
+		return True
+
+	def updateParameters(self, parameters):
+		"""Modify the values and properties of parameters before internal
+		validation is performed.  This method is called whenever a parameter
+		has been changed."""
+		return
+
+	def updateMessages(self, parameters):
+		"""Modify the messages created by internal validation for each tool
+		parameter.  This method is called after internal validation."""
+		return
+
+	def execute(self, parameters, messages):
+		"""The source code of the tool."""
+		
+		outparam = parameters[self._OUTPUT_FILE_PARAM_INDEX]
+		outpath = outparam.valueAsText
+		
+		def getOperationalLayers(mapDoc):
+			operationalLayers = []
+			layers = arcpy.mapping.ListLayers(mapDoc)
+			for l in layers:
+				# Exit if the current layer is not a service layer.
+				if not l.isServiceLayer or not l.supports("SERVICEPROPERTIES") or not l.visible:
+					continue
+				opLayer = {
+					"id": l.name,
+					"url": l.serviceProperties["Resturl"]+ "/" + l.longName + "/" + l.serviceProperties["ServiceType"],
+					"opacity": (100 - l.transparency) / 100,
+					"visibility": l.visible
+				 }
+
+				operationalLayers.append(opLayer)
+			return operationalLayers
+		
+		def getMapOptions(mapDoc):
+			df = mapDoc.activeDataFrame
+			output = {
+				"extent": {
+					"xmin": df.extent.XMin,
+					"ymin": df.extent.YMin,
+					"xmax": df.extent.XMax,
+					"ymax": df.extent.YMax
+				},
+				"scale": df.scale,
+				"rotation": df.rotation,
+				"spatialReference": {"wkid": df.spatialReference.GCSCode}
+			}
+			return output
+		
+		mapDoc = arcpy.mapping.MapDocument("CURRENT")
+		operationalLayers = getOperationalLayers(mapDoc)
+		mapOptions = getMapOptions(mapDoc)
+		
+		output = {
+				"operationalLayers": operationalLayers,
+				"mapOptions": mapOptions,
+				"exportOptions": {
+					"dpi": parameters[self._DPI_PARAM_INDEX].value,
+					"outputSize": [
+						parameters[self._OUTPUT_WIDTH_PARAM_INDEX].value,
+						parameters[self._OUTPUT_HEIGHT_PARAM_INDEX].value
+					]
+				}
+			}
+		
+		with open(outpath, "w") as f:
+			json.dump(output, f)
+			
+		return
