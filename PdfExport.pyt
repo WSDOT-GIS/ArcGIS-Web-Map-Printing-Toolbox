@@ -237,9 +237,7 @@ class ExportPdf(object):
 
 class GetWebMapJson(object):
 	_OUTPUT_FILE_PARAM_INDEX = 0
-	_OUTPUT_WIDTH_PARAM_INDEX = 1
-	_OUTPUT_HEIGHT_PARAM_INDEX = 2
-	_DPI_PARAM_INDEX = 3
+	_DPI_PARAM_INDEX = 1
 	
 	def __init__(self):
 		"""Define the tool (tool name is the name of the class)."""
@@ -256,24 +254,6 @@ class GetWebMapJson(object):
 			parameterType="Required",
 			direction="Output")
 		
-		outputWidthParam = arcpy.Parameter(
-			displayName="Width",
-			name="Width",
-			category="Export Options",
-			datatype="Long",
-			parameterType="Required",
-			direction="Input")
-		outputWidthParam.value = 800
-		
-		outputHeightParam = arcpy.Parameter(
-			displayName="Height",
-			name="Height",
-			category="Export Options",
-			datatype="Long",
-			parameterType="Required",
-			direction="Input")
-		outputHeightParam.value = 1100
-		
 		dpiParam = arcpy.Parameter(
 			displayName="DPI",
 			name="DPI",
@@ -285,7 +265,7 @@ class GetWebMapJson(object):
 		
 		
 		outputFileParam.value = generateFilename(".txt")
-		params = [outputFileParam, outputWidthParam, outputHeightParam, dpiParam]
+		params = [outputFileParam, dpiParam]
 		return params
 
 	def isLicensed(self):
@@ -318,6 +298,7 @@ class GetWebMapJson(object):
 					continue
 				opLayer = {
 					"id": l.name,
+					"title": l.name,
 					"url": l.serviceProperties["Resturl"]+ "/" + l.longName + "/" + l.serviceProperties["ServiceType"],
 					"opacity": (100 - l.transparency) / 100,
 					"visibility": l.visible
@@ -337,7 +318,7 @@ class GetWebMapJson(object):
 				},
 				"scale": df.scale,
 				"rotation": df.rotation,
-				"spatialReference": {"wkid": df.spatialReference.GCSCode}
+				"spatialReference": {"wkid": df.spatialReference.PCSCode}
 			}
 			return output
 		
@@ -351,8 +332,8 @@ class GetWebMapJson(object):
 				"exportOptions": {
 					"dpi": parameters[self._DPI_PARAM_INDEX].value,
 					"outputSize": [
-						parameters[self._OUTPUT_WIDTH_PARAM_INDEX].value,
-						parameters[self._OUTPUT_HEIGHT_PARAM_INDEX].value
+						mapDoc.pageSize.width,
+						mapDoc.pageSize.height,
 					]
 				}
 			}
